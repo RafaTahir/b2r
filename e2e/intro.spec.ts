@@ -41,9 +41,13 @@ test("Skip intro closes the video and a homepage reload shows it again", async (
 test("the video ending dismisses the overlay", async ({ page }) => {
   await page.goto("/");
   await expect(intro(page)).toBeVisible();
-  await expect.poll(() => video(page).evaluate(element => Number.isFinite((element as HTMLVideoElement).duration))).toBe(true);
-  await video(page).evaluate(element => { const media = element as HTMLVideoElement; media.currentTime = Math.max(0, media.duration - 0.3); });
-  await expect(intro(page)).not.toBeVisible();
+  // Normal playback also verifies CDN delivery; seeking immediately after
+  // metadata can stall while the final byte range is still being fetched.
+  await expect.poll(() => video(page).evaluate(element => {
+    const media = element as HTMLVideoElement;
+    return !media.paused && media.currentTime > 0;
+  })).toBe(true);
+  await expect(intro(page)).not.toBeVisible({timeout:20_000});
   await expect(page.getByRole("heading", { name: /One ASEAN/i })).toBeVisible();
 });
 
